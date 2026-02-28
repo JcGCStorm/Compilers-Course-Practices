@@ -25,8 +25,36 @@ int is_normal_char(char t){
 // character is one of the first cases and the second character is one of 
 // the second cases. 
 int needs_concatenation(char c1, char c2){
-    int c1_ends = is_normal_char(c1) || c1 == ')' || c1 == '*' || c1 == '+' 
+    int c1_ends = is_normal_char(c1) || c1 == ')' || c1 == '*' || c1 == '+'
     || c1 == '?';
     int c2_starts = is_normal_char(c2) || c2 == '(';
   return c1_ends && c2_starts;
 }
+
+#ifdef TEST
+#include <stdio.h>
+
+int main(void) {
+    char input[64];
+
+    printf("Test mode:\n");
+    printf("1 <char>       - test is_normal_char\n");
+    printf("2 <char1><char2> - test needs_concatenation\n");
+    printf("q              - quit\n\n");
+
+    while (fgets(input, sizeof(input), stdin)) {
+        if (input[0] == 'q') break;
+
+        if (input[0] == '1') {
+            char c = input[2];
+            printf("is_normal_char('%c') = %d\n", c, is_normal_char(c));
+        } else if (input[0] == '2') {
+            char c1 = input[2];
+            char c2 = input[3];
+            printf("needs_concatenation('%c', '%c') = %d\n", c1, c2, needs_concatenation(c1, c2));
+        }
+    }
+
+    return 0;
+}
+#endif
