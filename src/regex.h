@@ -33,6 +33,13 @@ typedef struct {
     int capacity;
 } regex;
 
+// With this we define a stack, which is just an array of characters.
+typedef struct {
+    char *data;
+    int top;
+    int capacity;
+} stack;
+
 regex parse_regex(const char *str);
 
 #endif
