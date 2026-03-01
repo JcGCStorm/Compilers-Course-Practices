@@ -2,9 +2,40 @@
 #include <string.h>
 #include <stdlib.h>
 
-regex parse_regex(const char *str)
-{
-    // TODO
+char* insert_concatenation(const char *str);
+char* infix_to_postfix(const char *str);
+
+// This function help us to match the type of tokens
+// with their symbol.
+token_type get_token_type(char c) {
+    switch (c) {
+        case '.': return TOKEN_DOT;
+        case '*': return TOKEN_STAR;
+        case '+': return TOKEN_PLUS;
+        case '?': return TOKEN_QUESTION;
+        case '|': return TOKEN_PIPE;
+        default: return TOKEN_CHAR;
+    }
+}
+
+// This is the main function, with this we can parse
+//the regex, we basically just call all the functions 
+// that we need.
+regex parse_regex(const char *str) {
+    char *postfix = infix_to_postfix(str);
+
+    int len = strlen(postfix);
+    regex r;
+    r.items = malloc(len * sizeof(token));
+    r.size = len;
+    r.capacity = len;
+
+    for (int i = 0; i < len; i++) {
+        r.items[i].value = postfix[i];
+        r.items[i].type = get_token_type(postfix[i]);
+    }
+      free(postfix);
+    return r;
 }
 
 // this function checks if the character is a char like a, b, c, etc,
@@ -56,7 +87,7 @@ char* insert_concatenation(const char *str){
 }
 
 // This is just an aux function that returns the precedence of the 
-// operators, we need this for the infix to postfix conversion, the 
+// operators, we need this for the infix to postfix conversion,
 // because the higher the precedence, the earlier it is evaluated,
 // as we saw in class, the precedence is |,.,?,+,*
 int precedence(char c) {
@@ -111,43 +142,48 @@ void free_stack(stack *s) {
 // to the output string until we find a left parenthesis, then we discard the left 
 // parenthesis from the stack, we don't put it in the output, just discard it. 
 char* infix_to_postfix(const char *str) {
-    int length = strlen(str);
+    // i added this because in the pdf it says that the output must be with explicit concatenation, so we need to add the concatenation operator before converting to postfix.
+    char *str2 = insert_concatenation(str);
+    int length = strlen(str2);
     char *postfix = malloc(length + 1);
     postfix[0] = '\0';
     stack symbols;
-    symbols.data = malloc(strlen(str));
+    symbols.data = malloc(strlen(str2));
     symbols.top = -1;
     symbols.capacity = length;
     for (int i = 0; i < length; i++) {
-       if (is_normal_char(str[i])) {
-            strncat(postfix, &str[i], 1);
-        } else if (str[i] == '(') {
-            push(&symbols, str[i]);
-        } else if (str[i] == ')') {
+       if (is_normal_char(str2[i])) {
+            strncat(postfix, &str2[i], 1);
+        } else if (str2[i] == '(') {
+            push(&symbols, str2[i]);
+        } else if (str2[i] == ')') {
             while (symbols.top >= 0 && peek(&symbols) != '(') {
                 strncat(postfix, &symbols.data[symbols.top--], 1);
             }
             if (symbols.top >= 0 && peek(&symbols) == '(')
             {
                 symbols.top--; // we discard the '(' from the stack
-            }
-            
+            } 
         } else {
             while (symbols.top >= 0 && precedence(symbols.data[symbols.top]) 
-            >= precedence(str[i])) {
+            >= precedence(str2[i])) {
                 strncat(postfix, &symbols.data[symbols.top--], 1);
             }
-            push(&symbols, str[i]);
+            push(&symbols, str2[i]);
         }
     }
     while (symbols.top >= 0) {
         strncat(postfix, &symbols.data[symbols.top--], 1);
     }
     free_stack(&symbols);
+    free(str2);
     return postfix;
 }
 
 
+// this is just for debuggin purposes, but i will keep it in the
+// code because it was really helpfull, you can test it with
+// gcc -DTEST regex.c -o test && ./test
 #ifdef TEST
 #include <stdio.h>
 

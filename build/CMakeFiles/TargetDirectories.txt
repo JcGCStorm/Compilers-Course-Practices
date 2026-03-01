@@ -1,3 +1,0 @@
-/Users/admin/Documents/personal/Escuela/Compiladores/practicas/practice1/build/CMakeFiles/regex_to_nfa.dir
-/Users/admin/Documents/personal/Escuela/Compiladores/practicas/practice1/build/CMakeFiles/edit_cache.dir
-/Users/admin/Documents/personal/Escuela/Compiladores/practicas/practice1/build/CMakeFiles/rebuild_cache.dir
