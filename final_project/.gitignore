@@ -1,0 +1,7 @@
+.DS_Store
+lex.yy.cpp
+parser.tab.cpp
+parser.tab.hpp
+morse_compiler
+morse_compiler.dSYM/
+out.txt
