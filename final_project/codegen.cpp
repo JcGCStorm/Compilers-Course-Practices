@@ -15,21 +15,24 @@ std::string CodeGenerator::new_label(const std::string& prefix) {
 std::string CodeGenerator::generate_expr(Node* node) {
     if (!node) return "";
 
-    if (node->type == "IntLit" || node->type == "Id" || node->type == "StringLit") {
+    if (node->type == "IntLit" || node->type == "Id") {
         return node->value;
+    }
+    if (node->type == "StringLit") {
+        return "\"" + node->value + "\"";
     }
 
     if (node->type == "Call") {
         Node* argsNode = node->children[0];
-        // param
         for (auto arg : argsNode->children) {
             std::string arg_val = generate_expr(arg);
-            out << "param " << arg_val << "\n";
+            out << "PARAM " << arg_val << "\n";
         }
-        out << "gtosub " << node->value << "\n";
+        out << "GOSUB " << node->value << "\n";
         
         std::string temp = new_temp();
-        out << temp << " = g_ret_int\n";
+        out << "VAR " << temp << "\n";
+        out << "ASSIGN g_ret_int " << temp << "\n";
         return temp;
     }
 
@@ -37,18 +40,20 @@ std::string CodeGenerator::generate_expr(Node* node) {
         std::string left = generate_expr(node->children[0]);
         std::string right = generate_expr(node->children[1]);
         std::string temp = new_temp();
+        out << "VAR " << temp << "\n";
         std::string op = "";
         
-        if (node->type == "Op_Add") op = "+";
-        else if (node->type == "Op_Sub") op = "-";
-        else if (node->type == "Op_Mul") op = "*";
-        else if (node->type == "Op_Div") op = "/";
-        else if (node->type == "Op_Eq") op = "==";
-        else if (node->type == "Op_Neq") op = "!=";
-        else if (node->type == "Op_Lt") op = "<";
-        else if (node->type == "Op_Gt") op = ">";
+        if (node->type == "Op_Add") op = "ADD";
+        else if (node->type == "Op_Sub") op = "SUB";
+        else if (node->type == "Op_Mul") op = "MUL";
+        else if (node->type == "Op_Div") op = "DIV";
+        else if (node->type == "Op_Mod") op = "MOD";
+        else if (node->type == "Op_Eq") op = "EQ";
+        else if (node->type == "Op_Neq") op = "NEQ";
+        else if (node->type == "Op_Lt") op = "LT";
+        else if (node->type == "Op_Gt") op = "GT";
         
-        out << temp << " = " << left << " " << op << " " << right << "\n";
+        out << op << " " << left << " " << right << " " << temp << "\n";
         return temp;
     }
 
@@ -67,46 +72,48 @@ void CodeGenerator::generate_stmt(Node* node) {
 
     if (node->type == "VarDeclInit") {
         std::string right = generate_expr(node->children[0]);
-        out << node->value << " = " << right << "\n";
+        out << "VAR " << node->value << "\n";
+        out << "ASSIGN " << right << " " << node->value << "\n";
         return;
     }
 
     if (node->type == "VarDecl") {
-        // Just declaration, no immediate code needed unless initializing to 0
+        out << "VAR " << node->value << "\n";
         return;
     }
 
     if (node->type == "Assign") {
         std::string right = generate_expr(node->children[0]);
-        out << node->value << " = " << right << "\n";
+        out << "ASSIGN " << right << " " << node->value << "\n";
         return;
     }
 
     if (node->type == "FuncDecl") {
-        out << node->value << ":\n"; // label for function
+        out << "LABEL " << node->value << "\n";
         Node* paramsNode = node->children[0];
         Node* blockNode = node->children[1];
 
-        // paramGet in reverse order (LIFO)
         std::vector<Node*> params = paramsNode->children;
         std::reverse(params.begin(), params.end());
         for (auto p : params) {
-            out << "paramGet " << p->value << "\n";
+            out << "VAR " << p->value << "\n";
+            out << "PARAM_GET " << p->value << "\n";
         }
 
         generate_stmt(blockNode);
         
-        // implicit return at end if missing
-        out << "return\n";
+        if (node->value != "main") {
+            out << "RETURN\n";
+        }
         return;
     }
 
     if (node->type == "Return") {
         if (node->children.size() > 0) {
             std::string ret_val = generate_expr(node->children[0]);
-            out << "g_ret_int = " << ret_val << "\n";
+            out << "ASSIGN " << ret_val << " g_ret_int\n";
         }
-        out << "return\n";
+        out << "RETURN\n";
         return;
     }
 
@@ -114,9 +121,9 @@ void CodeGenerator::generate_stmt(Node* node) {
         std::string cond = generate_expr(node->children[0]);
         std::string LEnd = new_label("if_end");
         
-        out << "if false " << cond << " goto " << LEnd << "\n";
+        out << "IFFALSE " << cond << " GOTO " << LEnd << "\n";
         generate_stmt(node->children[1]);
-        out << LEnd << ":\n";
+        out << "LABEL " << LEnd << "\n";
         return;
     }
 
@@ -125,12 +132,12 @@ void CodeGenerator::generate_stmt(Node* node) {
         std::string LElse = new_label("if_else");
         std::string LEnd = new_label("if_end");
         
-        out << "if false " << cond << " goto " << LElse << "\n";
-        generate_stmt(node->children[1]); // if true
-        out << "goto " << LEnd << "\n";
-        out << LElse << ":\n";
-        generate_stmt(node->children[2]); // else
-        out << LEnd << ":\n";
+        out << "IFFALSE " << cond << " GOTO " << LElse << "\n";
+        generate_stmt(node->children[1]); 
+        out << "GOTO " << LEnd << "\n";
+        out << "LABEL " << LElse << "\n";
+        generate_stmt(node->children[2]); 
+        out << "LABEL " << LEnd << "\n";
         return;
     }
 
@@ -138,27 +145,26 @@ void CodeGenerator::generate_stmt(Node* node) {
         std::string LStart = new_label("while_start");
         std::string LEnd = new_label("while_end");
         
-        out << LStart << ":\n";
+        out << "LABEL " << LStart << "\n";
         std::string cond = generate_expr(node->children[0]);
-        out << "if false " << cond << " goto " << LEnd << "\n";
+        out << "IFFALSE " << cond << " GOTO " << LEnd << "\n";
         generate_stmt(node->children[1]);
-        out << "goto " << LStart << "\n";
-        out << LEnd << ":\n";
+        out << "GOTO " << LStart << "\n";
+        out << "LABEL " << LEnd << "\n";
         return;
     }
 
     if (node->type == "Print") {
         std::string val = generate_expr(node->children[0]);
-        out << "print " << val << "\n";
+        out << "PRINT " << val << "\n";
         return;
     }
 
     if (node->type == "Input") {
-        out << "input " << node->value << "\n";
+        out << "INPUT " << node->value << "\n";
         return;
     }
 
-    // Call as a statement
     if (node->type == "Call") {
         generate_expr(node);
         return;
@@ -169,11 +175,9 @@ bool CodeGenerator::generate(Node* root, const std::string& filename) {
     out.open(filename);
     if (!out.is_open()) return false;
     
-    // Jump to main implicitly? Usually we just assume execution starts from the top.
-    // If the virtual machine starts at top, we might need to jump over functions to main or require a main function.
-    // For now we just traverse AST. We'll emit code in order.
-    out << "goto main\n"; // Assuming a 'main' function is required
-
+    out << "VAR g_ret_int\n";
+    // We let execution fall through into LABEL main
+    
     generate_stmt(root);
     
     out.close();

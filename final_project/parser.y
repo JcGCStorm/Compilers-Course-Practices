@@ -20,7 +20,7 @@ Node* root = nullptr;
 
 %token <sval> ID INT_LIT STRING_LIT
 %token KW_INT KW_IF KW_ELSE KW_WHILE KW_FUNC KW_RETURN KW_PRINT KW_INPUT
-%token ASSIGN PLUS MINUS STAR SLASH EQ NEQ LT GT
+%token ASSIGN PLUS MINUS STAR SLASH MOD EQ NEQ LT GT
 %token LBRACE RBRACE LPAREN RPAREN COMMA SEMI
 
 %type <node> program decl_list decl var_decl func_decl param_list params param block
@@ -188,6 +188,7 @@ add_expr:
 mul_expr:
     mul_expr STAR primary { $$ = new Node("Op_Mul"); $$->add_child($1); $$->add_child($3); }
     | mul_expr SLASH primary { $$ = new Node("Op_Div"); $$->add_child($1); $$->add_child($3); }
+    | mul_expr MOD primary { $$ = new Node("Op_Mod"); $$->add_child($1); $$->add_child($3); }
     | primary { $$ = $1; }
     ;
 
